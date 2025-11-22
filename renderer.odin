@@ -2,6 +2,7 @@ package main
 
 import "base:runtime"
 import clay "clay-odin"
+import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:strings"
@@ -258,6 +259,94 @@ clay_raylib_render :: proc(
 		// Implement custom element rendering here
 		}
 	}
+}
+shapes_Line_Renderer :: proc(s: Shape) {
+	rl.DrawLineV(s.kind.(LineData).start, s.kind.(LineData).end, rl.Color(s.color))
+}
+shapes_Rect_Renderer :: proc(s: Shape) {
+	rl.DrawRectangleV(s.kind.(RectData).start, s.kind.(RectData).size, rl.Color(s.color))
+}
+shapes_Circle_Renderer :: proc(s: Shape) {
+	rl.DrawCircleV(s.kind.(CircleData).center, s.kind.(CircleData).radius, rl.Color(s.color))
+}
+
+shapes_Renderer :: proc(s: Shape) {
+	switch v in s.kind {
+	case LineData:
+		shapes_Line_Renderer(s)
+	case RectData:
+		shapes_Rect_Renderer(s)
+	case CircleData:
+		shapes_Circle_Renderer(s)
+	}
+}
+shapes_Ghost_Renderer :: proc(state: ^State) {
+	switch state.currentMode {
+	case .select:
+		state.isDrawing = false
+	case .drawLine:
+		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) && !state.showModes && !state.isDrawing {
+			state.isDrawing = true
+			state.drawingStartPos = rl.GetMousePosition()
+
+		} else if (state.isDrawing) {
+			rl.DrawLineV(state.drawingStartPos, rl.GetMousePosition(), rl.Color{50, 50, 50, 255})
+			if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+				line: Shape = {
+					id    = state.nextId,
+					color = {0, 0, 0, 255},
+					kind  = LineData{state.drawingStartPos, rl.GetMousePosition()},
+				}
+				//fmt.printfln("id: %d", state.nextId)
+				append(&state.shapes, line)
+				state.nextId += 1
+				state.isDrawing = false
+			}
+		}
+	case .drawRect:
+		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) && !state.showModes && !state.isDrawing {
+			state.isDrawing = true
+			state.drawingStartPos = rl.GetMousePosition()
+
+		} else if (state.isDrawing) {
+			size: [2]f32
+			size = rl.GetMousePosition() - state.drawingStartPos
+			rl.DrawRectangleV(state.drawingStartPos, size, rl.Color{50, 50, 50, 255})
+			if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+				rect: Shape = {
+					id    = state.nextId,
+					color = {0, 0, 0, 255},
+					kind  = RectData{state.drawingStartPos, size},
+				}
+				append(&state.shapes, rect)
+				state.nextId += 1
+				state.isDrawing = false
+
+			}
+
+		}
+	case .drawCircle:
+		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) && !state.showModes && !state.isDrawing {
+			state.isDrawing = true
+			state.drawingStartPos = rl.GetMousePosition()
+
+		} else if (state.isDrawing) {
+			r: f32 = rl.Vector2Length(state.drawingStartPos - rl.GetMousePosition())
+			rl.DrawCircleV(state.drawingStartPos, r, rl.Color{50, 50, 50, 255})
+			if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+				circle: Shape = {
+					id    = state.nextId,
+					color = {0, 0, 0, 255},
+					kind  = CircleData{state.drawingStartPos, r},
+				}
+				append(&state.shapes, circle)
+				state.nextId += 1
+				state.isDrawing = false
+			}
+
+		}
+	}
+
 }
 
 // Helper procs, mainly for repeated conversions

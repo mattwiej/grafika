@@ -71,7 +71,6 @@ main :: proc() {
 	state: State
 	state.showModes = false
 	state.selectedIdx = -1
-	finish := false
 	for !rl.WindowShouldClose() {
 		defer free_all(context.temp_allocator)
 
@@ -83,8 +82,7 @@ main :: proc() {
 		}
 		if (rl.IsKeyPressed(.I)) {
 			state.showModes = !state.showModes
-			//state.isDrawing = false
-			//finish = false
+			state.isDrawing = false
 		}
 		clay.SetPointerState(
 			transmute(clay.Vector2)rl.GetMousePosition(),
@@ -99,24 +97,13 @@ main :: proc() {
 		renderCommands: clay.ClayArray(clay.RenderCommand) = createLayout(&state)
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.WHITE)
-		if (state.currentMode != .select && state.isDrawing == false) {
-
-			state.isDrawing = true
-			//state.drawingStartPos = rl.GetMousePosition()
+		shapes_Ghost_Renderer(&state)
+		//tu renderowanie kształtow z tablicy VVVV
+		if (state.nextId != 0) {
+			for s in state.shapes {
+				shapes_Renderer(s)
+			}
 		}
-		if (state.isDrawing) {
-			#partial switch state.currentMode {
-			case .select:
-				state.isDrawing = false
-			case .drawLine:
-				if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) && !state.showModes {
-					state.drawingStartPos = rl.GetMousePosition()
-					finish = true
-				}
-				if (finish) {
-					rl.DrawLineV(state.drawingStartPos, rl.GetMousePosition(), rl.BLACK)
-				}
-			}}
 
 		clay_raylib_render(&renderCommands)
 		//fmt.printfln("mode: %d", state.currentMode)
