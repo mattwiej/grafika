@@ -94,14 +94,19 @@ main :: proc() {
 			rl.GetFrameTime(),
 		)
 		clay.SetLayoutDimensions({cast(f32)rl.GetScreenWidth(), cast(f32)rl.GetScreenHeight()})
+
+		Handle_Selection(&state)
 		renderCommands: clay.ClayArray(clay.RenderCommand) = createLayout(&state)
+
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.WHITE)
 		shapes_Ghost_Renderer(&state)
-		//tu renderowanie kształtow z tablicy VVVV
 		if (state.nextId != 0) {
-			for s in state.shapes {
+			for s, idx in state.shapes {
 				shapes_Renderer(s)
+				if idx == state.selectedIdx {
+					shapes_Selected_Renderer(s)
+				}
 			}
 		}
 

@@ -260,6 +260,26 @@ clay_raylib_render :: proc(
 		}
 	}
 }
+shapes_Selected_Renderer :: proc(s: Shape) {
+	thickness: f32 = 3.0
+	color := rl.BLUE
+
+	switch v in s.kind {
+	case LineData:
+		rl.DrawLineEx(v.start, v.end, thickness, color)
+	case RectData:
+		pos := v.start
+		sz := v.size
+		if sz.x < 0 {pos.x += sz.x;sz.x *= -1}
+		if sz.y < 0 {pos.y += sz.y;sz.y *= -1}
+
+		rl.DrawRectangleLinesEx({pos.x, pos.y, sz.x, sz.y}, thickness, color)
+	case CircleData:
+		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius, color)
+		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius - 1, color)
+		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius + 1, color)
+	}
+}
 shapes_Line_Renderer :: proc(s: Shape) {
 	rl.DrawLineV(s.kind.(LineData).start, s.kind.(LineData).end, rl.Color(s.color))
 }
@@ -318,6 +338,7 @@ shapes_Ghost_Renderer :: proc(state: ^State) {
 					color = {0, 0, 0, 255},
 					kind  = RectData{state.drawingStartPos, size},
 				}
+				//fmt.printfln("pos: %s ||size: %s", state.drawingStartPos, size)
 				append(&state.shapes, rect)
 				state.nextId += 1
 				state.isDrawing = false
