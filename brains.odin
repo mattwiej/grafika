@@ -55,3 +55,22 @@ Handle_Selection :: proc(state: ^State) {
 		state.selectedIdx = foundIdx
 	}
 }
+
+shapes_Draging :: proc(state: ^State) {
+	if state.selectedIdx == -1 {
+		return
+	}
+	shape := &state.shapes[state.selectedIdx]
+	if rl.IsMouseButtonDown(rl.MouseButton.LEFT) {
+		delta := rl.GetMouseDelta()
+		switch &v in shape.kind {
+		case LineData:
+			v.start += delta
+			v.end += delta
+		case RectData:
+			v.start += delta
+		case CircleData:
+			v.center += delta
+		}
+	}
+}
