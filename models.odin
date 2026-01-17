@@ -29,20 +29,22 @@ Shape :: struct {
 }
 
 State :: struct {
-	shapes:          [dynamic]Shape,
-	nextId:          u32,
-	selectedIdx:     int,
-	currentMode:     Mode,
-	showModes:       bool,
-	showShapeInfo:   bool,
+	shapes:             [dynamic]Shape,
+	nextId:             u32,
+	selectedIdx:        int,
+	currentMode:        Mode,
+	showModes:          bool,
+	showShapeInfo:      bool,
 	//
-	bufX:            [64]u8,
-	bufY:            [64]u8,
-	bufW:            [64]u8,
-	bufH:            [64]u8,
-	bufColor:        [4]u8,
-	specialPoints:   [8]f32,
+	activeInputId:      u32,
+	buffer:             [32]u8,
+	bufferLen:          int,
+	bufColor:           [4]u8,
+	specialPoints:      [8]f32,
+	specialPointsCount: u8,
 	//
-	isDrawing:       bool,
-	drawingStartPos: [2]f32,
+	isDrawing:          bool,
+	drawingStartPos:    [2]f32,
+	editBuffer:         [64]u8, // Bufor na tekst edycji
+	editLen:            int, // Długość tekstu w buforze
 }
