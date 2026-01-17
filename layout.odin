@@ -53,60 +53,14 @@ spacer :: proc() {
 
 }
 
-propertyInput2 :: proc(label, id: string, value: ^f32, isActive: bool, state: ^State) -> bool {
-	bgColor := isActive ? COLOR_PROPERTY_INPUT_BG_ACTIVE : COLOR_PROPERTY_INPUT_BG
-	clicked := false
-
-	if clay.UI(clay.ID(id))(
-	{
-		layout = {
-			sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(30)},
-			padding = clay.PaddingAll(10),
-		},
-		backgroundColor = clay.Hovered() ? COLOR_PROPERTY_INPUT_BG_HOVER : bgColor,
-		cornerRadius = clay.CornerRadiusAll(5),
-	},
-	) {
-		clay.TextDynamic(
-			label,
-			clay.TextConfig({fontSize = 16, fontId = FONT_ID_BODY_16, textColor = COLOR_TEXT}),
-		)
-
-		if clay.UI(clay.ID(id, 1))(
-		{
-			layout = {
-				sizing = {width = clay.SizingGrow(), height = clay.SizingGrow()},
-				padding = {left = 5, right = 5},
-			},
-			backgroundColor = {255, 255, 255, 255},
-			cornerRadius = clay.CornerRadiusAll(5),
-			border = {width = clay.BorderAll(1), color = COLOR_BORDER},
-		},
-		) {
-			valueText := fmt.tprint(value)
-			clay.TextDynamic(
-				valueText,
-				clay.TextConfig({fontSize = 16, fontId = FONT_ID_BODY_16, textColor = COLOR_TEXT}),
-			)
-		}
-	}
-	if clay.PointerOver(clay.ID(id)) && rl.IsMouseButtonPressed(.LEFT) {
-		clicked = true
-		//fmt.printfln("klikej %s", id)
-	}
-	return clicked
-}
-
 
 PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 
 	isActive := (state.activeInputId == id)
 
-	// Style zależne od stanu
 	borderCol := isActive ? clay.Color{100, 140, 255, 255} : COLOR_BORDER
 	bgCol := isActive ? clay.Color{255, 255, 255, 255} : COLOR_PROPERTY_INPUT_BG
 
-	// Kontener Główny (Label + Input)
 	if clay.UI(clay.ID(label, id))(
 	{
 		layout = {
@@ -117,13 +71,11 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 		},
 	},
 	) {
-		// Etykieta (np. "X")
 		clay.TextDynamic(
 			label,
 			clay.TextConfig({fontSize = 16, fontId = FONT_ID_BODY_16, textColor = COLOR_TEXT}),
 		)
 
-		// Pole Tekstowe (Tło + Wartość)
 		if clay.UI(clay.ID("InputBg", id))(
 		{
 			layout = {
@@ -140,15 +92,11 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 			textToDisplay: string
 
 			if isActive {
-				// --- TRYB EDYCJI ---
-				HandleTextInput(state) // Twoja funkcja do obsługi klawiatury
+				HandleTextInput(state)
 
-				// Tworzymy string z bufora (tylko do długości bufferLen)
 				textToDisplay = string(state.buffer[:state.bufferLen])
 
-				// Zatwierdzenie (ENTER)
 				if rl.IsKeyPressed(.ENTER) {
-					// Parsowanie w zależności od typu T
 					valStr := textToDisplay
 
 					when T == f32 {
@@ -170,14 +118,11 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 				}
 
 			} else {
-				// --- TRYB PODGLĄDU ---
 				textToDisplay = fmt.tprint(value^)
 
-				// Aktywacja kliknięciem
 				if clay.PointerOver(clay.ID("InputBg", id)) && rl.IsMouseButtonPressed(.LEFT) {
 					state.activeInputId = id
 
-					// Kopiujemy obecną wartość do bufora edycji, żeby zacząć edycję od starej wartości
 					valStr := fmt.tprint(value^)
 					state.bufferLen = len(valStr)
 					if state.bufferLen > len(state.buffer) do state.bufferLen = len(state.buffer)
@@ -185,10 +130,8 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 				}
 			}
 
-			// Wyświetlamy tekst (dodajemy kursor "|" jeśli aktywny)
 			displayFinal := isActive ? fmt.tprint(textToDisplay, "|") : textToDisplay
 
-			// Tekst wartości (czarny, bo tło jasne)
 			clay.TextDynamic(
 				displayFinal,
 				clay.TextConfig(
@@ -199,8 +142,6 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State) {
 	}
 }
 
-// Helper do rysowania wiersza wektora (X, Y)
-// baseId: u32 -> Baza dla ID. X dostanie baseId, Y dostanie baseId + 1
 RowVector2 :: proc(label: string, vec: ^[2]f32, baseId: u32, state: ^State) {
 	clay.TextDynamic(
 		label,
@@ -216,7 +157,6 @@ RowVector2 :: proc(label: string, vec: ^[2]f32, baseId: u32, state: ^State) {
 		},
 	},
 	) {
-		// Przekazujemy adresy konkretnych pól wektora (.x i .y)
 		PropertyInput("X", &vec.x, baseId, state)
 		PropertyInput("Y", &vec.y, baseId + 1, state)
 	}
@@ -446,10 +386,8 @@ inputField :: proc(label: string, value: string) {
 		},
 	},
 	) {
-		// Label
 		clay.TextDynamic(label, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
 
-		// Input Box (Visual only - logic requires event handling)
 		if clay.UI(clay.ID(fmt.tprintf("%s_Input", label)))(
 		{
 			layout = {
@@ -543,8 +481,32 @@ modesOverlay :: proc(state: ^State) {
 		//modeButon("line", "Line")
 		//modeButon("rect", "Rect")
 		//modeButon("circle", "Circle")
-		spacer()
 
+		//zapisywanie i wczytywanie
+
+		if clay.UI(clay.ID("Saving_Loading"))(
+		{
+			layout = {
+				sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
+				layoutDirection = .LeftToRight,
+				padding = clay.PaddingAll(10),
+				childGap = 10,
+			},
+			backgroundColor = COLOR_WINDOW_BG,
+			cornerRadius = clay.CornerRadiusAll(8),
+		},
+		) {
+			if actionButton("Save") {
+				fmt.println("zapisane")}
+
+			if actionButton("Load") {
+				fmt.println("wczytane")}
+
+
+		}
+
+
+		spacer()
 		if state.currentMode != .select {
 			if clay.UI(clay.ID("PropertiesPanel"))(
 			{
@@ -554,48 +516,82 @@ modesOverlay :: proc(state: ^State) {
 					padding = clay.PaddingAll(10),
 					childGap = 10,
 				},
-				backgroundColor = COLOR_WINDOW_BG, // Or a slightly different shade
+				backgroundColor = COLOR_WINDOW_BG,
 				cornerRadius = clay.CornerRadiusAll(8),
 			},
 			) {
-				// 1. Title
 				clay.Text("Parameters", clay.TextConfig({fontSize = 24, textColor = COLOR_TEXT}))
 
-				// 2. Dynamic Inputs based on Mode
-				switch state.currentMode {
+				#partial switch state.currentMode {
 				case .drawLine:
-					// Assuming enum names based on your comments
-					inputField("X Start", "0")
-					inputField("Y Start", "0")
-					inputField("X End", "100")
-					inputField("Y End", "100")
+					PropertyInput("X Start", &state.tempX, 101, state)
+					PropertyInput("Y Start", &state.tempY, 102, state)
+					PropertyInput("X End", &state.tempW, 103, state) // Używam tempW jako X End
+					PropertyInput("Y End", &state.tempH, 104, state) // Używam tempH jako Y End
 
 				case .drawRect:
-					inputField("X Pos", "50")
-					inputField("Y Pos", "50")
-					inputField("Width", "200")
-					inputField("Height", "150")
+					PropertyInput("X Pos", &state.tempX, 201, state)
+					PropertyInput("Y Pos", &state.tempY, 202, state)
+					PropertyInput("Width", &state.tempW, 203, state)
+					PropertyInput("Height", &state.tempH, 204, state)
 
 				case .drawCircle:
-					inputField("Center X", "100")
-					inputField("Center Y", "100")
-					inputField("Radius", "50")
-
-				case .select:
-					clay.Text(
-						"Select an object to edit",
-						clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}),
-					)
+					PropertyInput("Center X", &state.tempX, 301, state)
+					PropertyInput("Center Y", &state.tempY, 302, state)
+					PropertyInput("Radius", &state.tempR, 303, state)
 				}
 
 				spacer()
 
-				// 3. Draw / Action Button
-				// Only show this button if we are in a creation mode
 				if actionButton("Draw Shape") {
 					// TODO: Add logic here to take values from inputs 
 					// and push the new shape to your entities list
 					fmt.println("Draw button clicked for mode:", state.currentMode)
+					switch state.currentMode {
+					case .drawRect:
+						fmt.printfln(
+							"Rect: %v %v %v %v",
+							state.tempX,
+							state.tempY,
+							state.tempW,
+							state.tempH,
+						)
+						rect: Shape = {
+							id    = state.nextId,
+							color = {0, 0, 0, 255},
+							kind  = RectData {
+								[2]f32{state.tempX, state.tempY},
+								[2]f32{state.tempW, state.tempH},
+							},
+						}
+						append(&state.shapes, rect)
+						state.nextId += 1
+
+
+					case .drawCircle:
+						fmt.printfln("Circle: %v %v R=%v", state.tempX, state.tempY, state.tempR)
+						circle: Shape = {
+							id    = state.nextId,
+							color = {0, 0, 0, 255},
+							kind  = CircleData{[2]f32{state.tempX, state.tempY}, state.tempR},
+						}
+						append(&state.shapes, circle)
+						state.nextId += 1
+
+
+					case .drawLine:
+						line: Shape = {
+							id    = state.nextId,
+							color = {0, 0, 0, 255},
+							kind  = LineData {
+								[2]f32{state.tempX, state.tempY},
+								[2]f32{state.tempW, state.tempH},
+							},
+						}
+						append(&state.shapes, line)
+						state.nextId += 1
+					case .select:
+					}
 				}
 			}
 		}

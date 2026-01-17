@@ -97,6 +97,7 @@ main :: proc() {
 
 		Handle_Selection(&state)
 		renderCommands: clay.ClayArray(clay.RenderCommand) = createLayout(&state)
+		update_shape_edit(&state)
 		shapes_Draging(&state)
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.WHITE)

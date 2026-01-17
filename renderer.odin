@@ -260,6 +260,14 @@ clay_raylib_render :: proc(
 		}
 	}
 }
+
+special_Point_Renderer :: proc(p: [2]f32) {
+
+	rl.DrawCircleV(p, 10, rl.BLUE)
+	rl.DrawCircleV(p, 6, rl.WHITE)
+
+}
+
 shapes_Selected_Renderer :: proc(s: Shape) {
 	thickness: f32 = 3.0
 	color := rl.BLUE
@@ -267,17 +275,40 @@ shapes_Selected_Renderer :: proc(s: Shape) {
 	switch v in s.kind {
 	case LineData:
 		rl.DrawLineEx(v.start, v.end, thickness, color)
+		special_Point_Renderer(v.start)
+		special_Point_Renderer(v.end)
 	case RectData:
 		pos := v.start
 		sz := v.size
 		if sz.x < 0 {pos.x += sz.x;sz.x *= -1}
 		if sz.y < 0 {pos.y += sz.y;sz.y *= -1}
+		p1: [2]f32 = {pos.x + (sz.x / 2), pos.y}
+		p2: [2]f32 = {pos.x + sz.x, pos.y + (sz.y / 2)}
+		p3: [2]f32 = {pos.x + (sz.x / 2), pos.y + sz.y}
+		p4: [2]f32 = {pos.x, pos.y + (sz.y / 2)}
+
 
 		rl.DrawRectangleLinesEx({pos.x, pos.y, sz.x, sz.y}, thickness, color)
+		special_Point_Renderer(p1)
+		special_Point_Renderer(p2)
+		special_Point_Renderer(p3)
+		special_Point_Renderer(p4)
 	case CircleData:
 		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius, color)
 		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius - 1, color)
 		rl.DrawCircleLines(cast(i32)v.center.x, cast(i32)v.center.y, v.radius + 1, color)
+		x := v.center.x
+		y := v.center.y
+		r := v.radius
+		p1: [2]f32 = {x, y - r}
+		p2: [2]f32 = {x + r, y}
+		p3: [2]f32 = {x, y + r}
+		p4: [2]f32 = {x - r, y}
+		special_Point_Renderer(p1)
+		special_Point_Renderer(p2)
+		special_Point_Renderer(p3)
+		special_Point_Renderer(p4)
+
 	}
 }
 shapes_Line_Renderer :: proc(s: Shape) {
