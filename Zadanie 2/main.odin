@@ -6,6 +6,54 @@ import rl "vendor:raylib"
 //import "vendor:stb"
 
 
+create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
+
+	// PRZYPADEK 1: Obraz 8-bitowy (Standard)
+	if img.maxValFlag == 8 {
+		pixels := img.maxVal.([dynamic]u8)
+
+		image := rl.Image {
+			data    = raw_data(pixels),
+			width   = img.width,
+			height  = img.height,
+			mipmaps = 1,
+			format  = .UNCOMPRESSED_R8G8B8,
+		}
+		return rl.LoadTextureFromImage(image)
+	} else if img.maxValFlag == 16 {
+		pixels_16 := img.maxVal.([dynamic]u16)
+
+		// Tworzymy tymczasową tablicę 8-bitową tylko do wyświetlania
+		// Raylib skopiuje ją do GPU, więc zaraz potem ją usuniemy
+		temp_pixels_8 := make([dynamic]u8, len(pixels_16))
+		defer delete(temp_pixels_8)
+
+		// Przeliczamy 0..65535 na 0..255
+		// Wzór: (wartość * 255) / maxVal
+		// Dzięki temu obraz będzie wyglądał poprawnie wizualnie
+
+		// Zabezpieczenie przed dzieleniem przez zero, jeśli maxVal nie wczytany
+		div: f32 = 65535.0
+
+		for i := 0; i < len(pixels_16); i += 1 {
+			val16 := f32(pixels_16[i])
+			// Skalowanie liniowe do 8 bitów
+			temp_pixels_8[i] = u8((val16 * 255.0) / div)
+		}
+
+		image := rl.Image {
+			data    = raw_data(temp_pixels_8),
+			width   = img.width,
+			height  = img.height,
+			mipmaps = 1,
+			format  = .UNCOMPRESSED_R8G8B8, // Teraz to bezpieczny format!
+		}
+
+		return rl.LoadTextureFromImage(image)
+	}
+
+	return {}
+}
 main :: proc() {
 
 	state: State_models
@@ -17,7 +65,9 @@ main :: proc() {
 
 	// 1. Wczytaj obraz do RAM
 	start := time.now()
-	my_image, loaded := LoadFile_parser("img/ppm-test-07-p3-big.ppm", &state)
+	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-07-p3-big.ppm", &state)
+	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-02-p3-comments.ppm", &state)
+	my_image, loaded := LoadFile_parser_fast("img/ppm-test-04-p3-16bit.ppm", &state) //cos nie dziala tu
 
 	duration := time.since(start)
 	fmt.printfln("wszystko i kopiowanie danych: %v", duration)
@@ -28,16 +78,17 @@ main :: proc() {
 	if loaded {
 		// 2. Konwersja RAM -> Raylib Image
 		// UWAGA: Używamy raw_data() aby przekazać wskaźnik C
-		rl_image := rl.Image {
-			data    = raw_data(my_image.maxVal.([dynamic]u8)),
-			width   = my_image.width,
-			height  = my_image.height,
-			mipmaps = 1,
-			format  = .UNCOMPRESSED_R8G8B8, // Format PPM to zazwyczaj czyste RGB
-		}
-
+		//		rl_image := rl.Image {
+		//			data    = raw_data(my_image.maxVal.([dynamic]u8)),
+		//			width   = my_image.width,
+		//			height  = my_image.height,
+		//			mipmaps = 1,
+		//			format  = .UNCOMPRESSED_R8G8B8, // Format PPM to zazwyczaj czyste RGB
+		//		}
+		//
 		// 3. Upload do GPU
-		texture = rl.LoadTextureFromImage(rl_image)
+		//texture = rl.LoadTextureFromImage(rl_image)
+		texture = create_texture_from_model(my_image)
 
 		// Nie zwalniamy my_image.maxValue.([dynamic]u8), bo będziesz go potrzebował później 
 		// do odczytywania wartości pikseli pod myszką!

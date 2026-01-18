@@ -16,7 +16,10 @@ ImageBuffer_models :: struct {
 	width:      i32,
 	height:     i32,
 	format:     FileFormat_models,
-	maxVal:     MaxVal_models,
+	maxVal:     union {
+		[dynamic]u8,
+		[dynamic]u16,
+	},
 	maxValFlag: i32,
 }
 
