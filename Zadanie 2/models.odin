@@ -13,10 +13,11 @@ State_models :: struct {
 }
 
 ImageBuffer_models :: struct {
-	width:  int,
-	height: int,
-	format: FileFormat_models,
-	maxVal: MaxVal_models,
+	width:      i32,
+	height:     i32,
+	format:     FileFormat_models,
+	maxVal:     MaxVal_models,
+	maxValFlag: i32,
 }
 
 MaxVal_models :: union {
