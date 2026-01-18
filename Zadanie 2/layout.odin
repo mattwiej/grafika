@@ -8,7 +8,7 @@ import rl "vendor:raylib"
 COLOR_WINDOW_BG :: clay.Color{43, 43, 43, 240}
 COLOR_BORDER :: clay.Color{100, 100, 100, 255}
 COLOR_TEXT :: clay.Color{255, 255, 255, 255}
-COLOR_DEBUG_PINK :: clay.Color{255, 192, 203, 240}
+COLOR_DEBUG_PINK :: clay.Color{60, 60, 60, 240}
 COLOR_MODE_BUTTON :: clay.Color{60, 60, 60, 255}
 COLOR_MODE_BUTTON_HOVER :: clay.Color{120, 120, 120, 255}
 COLOR_MODE_BUTTON_ACTIVE :: clay.Color{30, 120, 90, 255}
@@ -95,6 +95,11 @@ PropertyInput :: proc(label: string, value: ^$T, id: u32, state: ^State_models) 
 						// strconv.parse_uint zwraca u64, rzutujemy na u8
 						if res, ok := strconv.parse_uint(valStr); ok {
 							value^ = u8(res)
+						}
+					} else when T == int {
+						if res, ok := strconv.parse_int(valStr); ok {
+							value^ = res
+							fmt.printfln("\n\n\n\n\n compres: %v", state.compressionQuality)
 						}
 					}
 					state.activeInputId = 0 // Wyjście z edycji
@@ -265,6 +270,7 @@ modesOverlay :: proc(state: ^State_models) {
 			)
 			spacer()
 		}
+		PropertyInput("quality", &state.compressionQuality, 420, state)
 		if clay.UI(clay.ID("Saving_Loading"))(
 		{
 			layout = {
@@ -279,7 +285,7 @@ modesOverlay :: proc(state: ^State_models) {
 		) {
 			if actionButton("Save") {
 				if path, ok := save_file_dialog(); ok {
-
+					SaveToJpeg(state.currentImage, path, state.compressionQuality)
 				}
 				fmt.println("zapisane")}
 

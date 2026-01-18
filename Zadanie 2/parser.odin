@@ -1,11 +1,59 @@
 package main
 
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import "core:strconv"
 import "core:strings"
 import "core:time"
 import rl "vendor:raylib"
+import stbi "vendor:stb/image"
+
+
+SaveToJpeg :: proc(img: ImageBuffer_models, filepath: string, quality: int) -> bool {
+	// quality: 1 (najgorsza) do 100 (najlepsza)
+
+	// Konwersja filepath (Odin string) na C-string (wymagane przez STB)
+	c_filepath := strings.clone_to_cstring(filepath)
+	defer delete(c_filepath)
+
+	// DANE DO ZAPISU
+	// Musimy mieć wskaźnik do danych 8-bitowych (u8)
+	data_ptr: ^u8 = nil
+
+	// Tablica tymczasowa, jeśli trzeba będzie konwertować z 16-bit
+	temp_data: [dynamic]u8
+	defer if len(temp_data) > 0 {delete(temp_data)}
+
+	if img.maxValFlag == 8 {
+		// Prosta sprawa - mamy już u8
+		pixels := img.maxVal.([dynamic]u8)
+		data_ptr = raw_data(pixels)
+	} else if img.maxValFlag == 16 {
+		fmt.println("Konwersja 16-bit -> 8-bit przed zapisem do JPG...")
+
+		pixels16 := img.maxVal.([dynamic]u16)
+		count := len(pixels16)
+		temp_data = make([dynamic]u8, count)
+
+		max_val_f: f32 = 65535
+		if max_val_f == 0 {max_val_f = 65535.0}
+
+		for i := 0; i < count; i += 1 {
+			val := f32(pixels16[i])
+			temp_data[i] = u8((val * 255.0) / max_val_f)
+		}
+		data_ptr = raw_data(temp_data)
+	}
+
+	if data_ptr == nil {return false}
+
+	// ZAPIS
+	// width, height, comp (3=RGB), data, quality
+	result := stbi.write_jpg(c_filepath, img.width, img.height, 3, data_ptr, i32(quality))
+
+	return result != 0 // 0 oznacza błąd
+}
 
 LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer_models, bool) {
 	start_total := time.now()
@@ -20,6 +68,45 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 	duration_load := time.since(start_total)
 	fmt.printfln("Ladowanie pliku z dysku: %v", duration_load)
 
+
+	if len(data) > 2 && data[0] == 0xFF && data[1] == 0xD8 {
+		fmt.println("Wykryto format JPEG")
+
+		width, height, channels: i32
+
+		raw_c_ptr := stbi.load_from_memory(
+			raw_data(data),
+			i32(len(data)),
+			&width,
+			&height,
+			&channels,
+			3,
+		)
+
+		if raw_c_ptr == nil {
+			fmt.println("Błąd: stb_image nie poradził sobie z plikiem")
+			return {}, false
+		}
+		defer stbi.image_free(raw_c_ptr)
+
+		rawImg := ImageBuffer_models {
+			width      = width,
+			height     = height,
+			maxValFlag = 8,
+		}
+
+		data_size := int(width * height * 3)
+
+		pixels := make([dynamic]u8, data_size)
+
+		mem.copy(raw_data(pixels), raw_c_ptr, data_size)
+
+		rawImg.maxVal = pixels
+
+		return rawImg, true
+	}
+
+
 	cursor := 0
 
 	skip_junk :: proc(data: []u8, cursor: ^int) {
@@ -27,6 +114,7 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 		for cursor^ < len_data {
 			c := data[cursor^]
 			switch c {
+
 			case ' ', '\n', '\r', '\t':
 				cursor^ += 1
 			case '#':
@@ -129,8 +217,53 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 		}
 
 	} else if magic_type == '6' { 	// P6 (Binarne)
-		// Tutaj w przyszłości po prostu zrobisz mem.copy (będzie jeszcze szybciej)
-		// Na razie zostawiam puste wg Twojego kodu
+		if cursor < len(data) {
+			cursor += 1
+		}
+
+		if cursor >= len(data) {
+			return {}, false
+		}
+
+		if fileMaxVal > 255 {
+			rawImg.maxValFlag = 16
+
+			bytes_needed := expectedSize * 2
+
+			if cursor + bytes_needed > len(data) {
+				fmt.println("Błąd P6: Plik jest za krótki dla trybu 16-bit")
+				return {}, false
+			}
+
+			pixels := make([dynamic]u16, expectedSize)
+			ptr := raw_data(pixels)
+
+			//konwersja z big endian na little endian
+			for i := 0; i < expectedSize; i += 1 {
+				// cursor + i*2     -> Starszy bajt
+				// cursor + i*2 + 1 -> Młodszy bajt
+
+				hi := u16(data[cursor + i * 2])
+				lo := u16(data[cursor + i * 2 + 1])
+
+				ptr[i] = (hi << 8) | lo
+			}
+			rawImg.maxVal = pixels
+
+		} else {
+			rawImg.maxValFlag = 8
+
+			if cursor + expectedSize > len(data) {
+				fmt.println("Błąd P6: Plik jest za krótki dla trybu 8-bit")
+				return {}, false
+			}
+
+			pixels := make([dynamic]u8, expectedSize)
+
+			copy(pixels[:], data[cursor:cursor + expectedSize])
+
+			rawImg.maxVal = pixels
+		}
 	} else {
 		return {}, false
 	}
@@ -139,99 +272,6 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 	fmt.printfln("Parsowanie (zero-copy): %v", duration_parse)
 
 	return rawImg, true
-}
-LoadFile_parser :: proc(path: string, state: ^State_models) -> (ImageBuffer_models, bool) {
-
-	start := time.now()
-
-	it, ok := os.read_entire_file(path)
-	if !ok {
-		//state.errorState.FileNotFound
-		return {}, false
-	}
-
-	duration := time.since(start)
-	fmt.printfln("ladowanie pliku: %v", duration)
-
-
-	defer delete(it)
-
-	contetnt := string(it)
-
-	clean_content := strings.builder_make()
-	defer strings.builder_destroy(&clean_content)
-
-	//it := contetnt
-
-	start = time.now()
-
-	for line in strings.split_iterator(&contetnt, "\n") {
-		comment_index := strings.index(line, "#")
-		if comment_index != -1 {
-			strings.write_string(&clean_content, line[:comment_index]) //jak jest komentarz (#) to biore slice od początku do miejsca w kotrym pojawia się komentarz
-		} else {
-			strings.write_string(&clean_content, line)}
-
-		strings.write_string(&clean_content, " ")
-	}
-
-	duration = time.since(start)
-	fmt.printfln("dzielenie na wiersze i usuwanie kom: %v", duration)
-
-	clean_text := strings.to_string(clean_content)
-	fields := strings.fields(clean_text)
-	defer delete(fields)
-
-
-	if len(fields) < 4 {
-		//state.errorState.InvalidFormat
-		return {}, false
-	}
-	magicNumber := fields[0]
-	width := i32(strconv.atoi(fields[1]))
-	height := i32(strconv.atoi(fields[2]))
-	maxVal := i32(strconv.atoi(fields[3]))
-
-	expectedSize := int(width * height * 3)
-	rgbTokens := fields[4:]
-
-	if len(rgbTokens) < expectedSize {
-		//state.errorState.CorruptData
-		return {}, false
-	}
-
-	rawImg := ImageBuffer_models {
-		width      = width,
-		height     = height,
-		maxVal     = maxVal > 255 ? make([dynamic]u16, 0, expectedSize) : make([dynamic]u8, 0, expectedSize),
-		maxValFlag = maxVal > 255 ? 16 : 8,
-	}
-
-	switch magicNumber {
-	case "P3":
-		if rawImg.maxValFlag == 8 {
-
-			start = time.now()
-
-			for i := 0; i < expectedSize; i += 1 {
-				val := u8(strconv.atoi(rgbTokens[i]))
-				append(&rawImg.maxVal.([dynamic]u8), val)}
-
-			duration = time.since(start)
-			fmt.printfln("zamiana ze stringana liczbe i przypisanie do tablicy: %v", duration)
-
-
-			return rawImg, true
-		} else if rawImg.maxValFlag == 16 {
-			for i := 0; i < expectedSize; i += 1 {
-				val := u16(strconv.atoi(rgbTokens[i]))
-				append(&rawImg.maxVal.([dynamic]u16), val)}
-			return rawImg, true
-		}
-	case "P6":
-	}
-
-	return {}, false
 }
 
 PPMHeaderParser_parser :: proc() {

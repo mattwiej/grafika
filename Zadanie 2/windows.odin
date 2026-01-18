@@ -23,7 +23,6 @@ open_file_dialog :: proc() -> (string, bool) {
 	return "", false
 }
 
-// Wrapper na Windowsowe okno "Zapisz jako"
 save_file_dialog :: proc() -> (string, bool) {
 	buf: [260]u16
 	ofn: windows.OPENFILENAMEW
@@ -39,9 +38,8 @@ save_file_dialog :: proc() -> (string, bool) {
 		path, _ := windows.utf16_to_utf8(buf[:], context.allocator)
 		pathStr := strings.trim_right_null(path)
 
-		// Dodaj .json jeśli użytkownik zapomniał
-		if !strings.has_suffix(pathStr, ".json") {
-			newPath := strings.concatenate({pathStr, ".json"})
+		if !strings.has_suffix(pathStr, ".jpg") {
+			newPath := strings.concatenate({pathStr, ".jpg"})
 			return newPath, true
 		}
 		return pathStr, true
