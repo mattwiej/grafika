@@ -412,19 +412,12 @@ actionButton :: proc(text: string) -> bool {
 		layout = {
 			sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(40)},
 			padding = clay.PaddingAll(10),
-			//layoutDirection = .Row, // Center text
-			//alignChild = .Center, // Center text
 		},
-		backgroundColor = {50, 200, 50, 255}, // Green color for action
+		backgroundColor = {50, 200, 50, 255},
 		cornerRadius = clay.CornerRadiusAll(8),
 	},
 	) {
 		clay.TextDynamic(text, clay.TextConfig({fontSize = 20, textColor = {255, 255, 255, 255}}))
-
-		// Simple interaction logic
-		// Note: You need to pass standard input state here usually
-		// keeping it simple for this snippet:
-		//if clay.PointerOver(clay.ID(id)) && rl.IsMouseButtonPressed(.LEFT)
 		if clay.PointerOver(clay.GetElementId(clay.MakeString(text))) &&
 		   rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
 			//fmt.println("rysowanie")
@@ -497,13 +490,19 @@ modesOverlay :: proc(state: ^State) {
 		},
 		) {
 			if actionButton("Save") {
+				if path, ok := save_file_dialog(); ok {
+					save_state_to_json(state, path)
+				}
 				fmt.println("zapisane")}
 
 			if actionButton("Load") {
-				fmt.println("wczytane")}
+				if path, ok := open_file_dialog(); ok {
+					load_shapes_detective(state, path)
+				}
+				fmt.println("wczytane")
 
 
-		}
+			}}
 
 
 		spacer()

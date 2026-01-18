@@ -110,7 +110,6 @@ main :: proc() {
 				}
 			}
 		}
-
 		clay_raylib_render(&renderCommands)
 		//fmt.printfln("mode: %d", state.currentMode)
 		rl.EndDrawing()
