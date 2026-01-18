@@ -1,5 +1,7 @@
 package main
 
+import clay "clay-odin"
+import "core:c"
 import "core:fmt"
 import "core:time"
 import rl "vendor:raylib"
@@ -8,7 +10,6 @@ import rl "vendor:raylib"
 
 create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
 
-	// PRZYPADEK 1: Obraz 8-bitowy (Standard)
 	if img.maxValFlag == 8 {
 		pixels := img.maxVal.([dynamic]u8)
 
@@ -23,16 +24,12 @@ create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
 	} else if img.maxValFlag == 16 {
 		pixels_16 := img.maxVal.([dynamic]u16)
 
-		// Tworzymy tymczasową tablicę 8-bitową tylko do wyświetlania
-		// Raylib skopiuje ją do GPU, więc zaraz potem ją usuniemy
 		temp_pixels_8 := make([dynamic]u8, len(pixels_16))
 		defer delete(temp_pixels_8)
 
 		// Przeliczamy 0..65535 na 0..255
 		// Wzór: (wartość * 255) / maxVal
-		// Dzięki temu obraz będzie wyglądał poprawnie wizualnie
 
-		// Zabezpieczenie przed dzieleniem przez zero, jeśli maxVal nie wczytany
 		div: f32 = 65535.0
 
 		for i := 0; i < len(pixels_16); i += 1 {
@@ -54,46 +51,85 @@ create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
 
 	return {}
 }
+
+
+windowWidth: i32 = 1024
+windowHeight: i32 = 768
+FONT_ID_BODY_16 :: 0
+FONT_ID_TITLE_56 :: 9
+FONT_ID_TITLE_52 :: 1
+FONT_ID_TITLE_48 :: 2
+FONT_ID_TITLE_36 :: 3
+FONT_ID_TITLE_32 :: 4
+FONT_ID_BODY_36 :: 5
+FONT_ID_BODY_30 :: 6
+FONT_ID_BODY_28 :: 7
+FONT_ID_BODY_24 :: 8
+
+errorHandler :: proc "c" (errorData: clay.ErrorData) {
+	if (errorData.errorType == clay.ErrorType.DuplicateId) {
+		// etc
+	}
+}
+
+loadFont :: proc(fontId: u16, fontSize: u16, path: cstring) {
+	assign_at(
+		&raylib_fonts,
+		fontId,
+		Raylib_Font {
+			font = rl.LoadFontEx(path, cast(i32)fontSize * 2, nil, 0),
+			fontId = cast(u16)fontId,
+		},
+	)
+	rl.SetTextureFilter(raylib_fonts[fontId].font.texture, rl.TextureFilter.TRILINEAR)
+}
+
+
 main :: proc() {
 
+	minMemorySize: c.size_t = cast(c.size_t)clay.MinMemorySize()
+	memory := make([^]u8, minMemorySize)
+	arena: clay.Arena = clay.CreateArenaWithCapacityAndMemory(minMemorySize, memory)
+	clay.Initialize(
+		arena,
+		{cast(f32)rl.GetScreenWidth(), cast(f32)rl.GetScreenHeight()},
+		{handler = errorHandler},
+	)
+	clay.SetMeasureTextFunction(measure_text, nil)
+
+	rl.SetConfigFlags({.VSYNC_HINT, .WINDOW_RESIZABLE, .MSAA_4X_HINT})
+	rl.InitWindow(windowWidth, windowHeight, "Grafika_1")
+	rl.SetTargetFPS(rl.GetMonitorRefreshRate(0))
+
+
+	loadFont(FONT_ID_TITLE_56, 56, "resources/Calistoga-Regular.ttf")
+	loadFont(FONT_ID_TITLE_52, 52, "resources/Calistoga-Regular.ttf")
+	loadFont(FONT_ID_TITLE_48, 48, "resources/Calistoga-Regular.ttf")
+	loadFont(FONT_ID_TITLE_36, 36, "resources/Calistoga-Regular.ttf")
+	loadFont(FONT_ID_TITLE_32, 32, "resources/Calistoga-Regular.ttf")
+	loadFont(FONT_ID_BODY_36, 36, "resources/Quicksand-Semibold.ttf")
+	loadFont(FONT_ID_BODY_30, 30, "resources/Quicksand-Semibold.ttf")
+	loadFont(FONT_ID_BODY_28, 28, "resources/Quicksand-Semibold.ttf")
+	loadFont(FONT_ID_BODY_24, 24, "resources/Quicksand-Semibold.ttf")
+	loadFont(FONT_ID_BODY_16, 16, "resources/Quicksand-Semibold.ttf")
+
+
+	debugModeEnabled: bool = false
 	state: State_models
 
-	rl.InitWindow(800, 600, "Odin PPM Viewer - Faza 1")
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(60)
 
 	// 1. Wczytaj obraz do RAM
-	start := time.now()
 	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-07-p3-big.ppm", &state)
 	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-02-p3-comments.ppm", &state)
-	my_image, loaded := LoadFile_parser_fast("img/ppm-test-04-p3-16bit.ppm", &state) //cos nie dziala tu
+	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-04-p3-16bit.ppm", &state) //sciezka do pliku byla zla debilu
+	//my_image, loaded := LoadFile_parser_fast("img/ppm-test-01-p3.ppm", &state)
 
-	duration := time.since(start)
-	fmt.printfln("wszystko i kopiowanie danych: %v", duration)
-	// Zmienna na teksturę (GPU)
+	loaded: bool
 	texture: rl.Texture2D
-
-
-	if loaded {
-		// 2. Konwersja RAM -> Raylib Image
-		// UWAGA: Używamy raw_data() aby przekazać wskaźnik C
-		//		rl_image := rl.Image {
-		//			data    = raw_data(my_image.maxVal.([dynamic]u8)),
-		//			width   = my_image.width,
-		//			height  = my_image.height,
-		//			mipmaps = 1,
-		//			format  = .UNCOMPRESSED_R8G8B8, // Format PPM to zazwyczaj czyste RGB
-		//		}
-		//
-		// 3. Upload do GPU
-		//texture = rl.LoadTextureFromImage(rl_image)
-		texture = create_texture_from_model(my_image)
-
-		// Nie zwalniamy my_image.maxValue.([dynamic]u8), bo będziesz go potrzebował później 
-		// do odczytywania wartości pikseli pod myszką!
-	}
-
+	my_image := state.currentImage
 	camera := rl.Camera2D {
 		offset   = rl.Vector2{400, 300}, // Środek ekranu (punkt skupienia)
 		target   = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2}, // Środek obrazka
@@ -103,6 +139,39 @@ main :: proc() {
 
 	// Główna pętla renderowania
 	for !rl.WindowShouldClose() {
+
+
+		defer free_all(context.temp_allocator)
+
+
+		if state.loadNewTexture {
+			texture = create_texture_from_model(state.currentImage)
+			state.loadNewTexture = false
+			camera.target = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2}
+			camera.zoom = 50
+			loaded = true
+		}
+
+		windowWidth = rl.GetScreenWidth()
+		windowHeight = rl.GetScreenHeight()
+		if (rl.IsKeyPressed(.D)) {
+			debugModeEnabled = !debugModeEnabled
+			clay.SetDebugModeEnabled(debugModeEnabled)
+		}
+		if (rl.IsKeyPressed(.I)) {
+			state.showModes = !state.showModes
+		}
+		clay.SetPointerState(
+			transmute(clay.Vector2)rl.GetMousePosition(),
+			rl.IsMouseButtonDown(rl.MouseButton.LEFT),
+		)
+		clay.UpdateScrollContainers(
+			false,
+			transmute(clay.Vector2)rl.GetMouseWheelMoveV(),
+			rl.GetFrameTime(),
+		)
+		clay.SetLayoutDimensions({cast(f32)rl.GetScreenWidth(), cast(f32)rl.GetScreenHeight()})
+		renderCommands: clay.ClayArray(clay.RenderCommand) = createLayout(&state)
 		if rl.IsMouseButtonDown(.RIGHT) {
 			delta := rl.GetMouseDelta()
 			delta = rl.Vector2Scale(delta, -1.0 / camera.zoom) // Skalujemy ruch odwrotnie do zoomu
@@ -129,95 +198,12 @@ main :: proc() {
 		if loaded {
 			rl.BeginMode2D(camera)
 			rl.DrawTexture(texture, 0, 0, rl.WHITE)
-
-			if camera.zoom > 5.0 {
-				// Rysuj siatkę
-				rl.DrawRectangleLinesEx(
-					rl.Rectangle{0, 0, f32(my_image.width), f32(my_image.height)},
-					1.0 / camera.zoom,
-					rl.GRAY,
-				)
-
-				// Rysuj linie siatki dla każdego piksela (opcjonalne, może być wolne przy wielkich obrazach)
-				// Optymalizacja: Rysuj tylko widoczne linie (culling), tu wersja prosta:
-
-
-				//start_col := i32(
-				//	max(0, camera.target.x - (rl.GetScreenWidth() / 2 / i32(camera.zoom))),
-				//)
-				//end_col := i32(
-				//	min(
-				//		f32(my_image.width),
-				//		camera.target.x + (rl.GetScreenWidth() / 2 / i32(camera.zoom)) + 1,
-				//	),
-				//)
-				//start_row := i32(
-				//	max(0, camera.target.y - (rl.GetScreenHeight() / 2 / i32(camera.zoom))),
-				//)
-				//end_row := i32(
-				//	min(
-				//		f32(my_image.height),
-				//		camera.target.y + (rl.GetScreenHeight() / 2 / i32(camera.zoom)) + 1,
-				//	),
-				//)
-
-				//for y := start_row; y < end_row; y += 1 {
-				//	for x := start_col; x < end_col; x += 1 {
-				//		// Rysuj ramkę piksela
-				//		rl.DrawRectangleLines(x, y, 1, 1, rl.Color{50, 50, 50, 100})
-
-				//		// Wyświetl wartości RGB (tylko przy BARDZO dużym zoomie > 15)
-				//		if camera.zoom > 15.0 {
-				//			idx := (y * my_image.width + x) * 3
-				//			r := my_image.maxVal.([dynamic]u8)[idx]
-				//			g := my_image.maxVal.([dynamic]u8)[idx + 1]
-				//			b := my_image.maxVal.([dynamic]u8)[idx + 2]
-
-				//			// Kolor tekstu (kontrastowy do piksela)
-				//			text_color := rl.WHITE
-				//			if (int(r) + int(g) + int(b)) / 3 > 128 {
-				//				text_color = rl.BLACK
-				//			}
-
-				//			font_size := f32(0.2) // Mała czcionka w świecie gry
-				//			rl.DrawTextEx(
-				//				rl.GetFontDefault(),
-				//				fmt.ctprintf("%d", r),
-				//				{f32(x) + 0.1, f32(y) + 0.1},
-				//				font_size,
-				//				0,
-				//				rl.RED,
-				//			)
-				//			rl.DrawTextEx(
-				//				rl.GetFontDefault(),
-				//				fmt.ctprintf("%d", g),
-				//				{f32(x) + 0.1, f32(y) + 0.4},
-				//				font_size,
-				//				0,
-				//				rl.GREEN,
-				//			)
-				//			rl.DrawTextEx(
-				//				rl.GetFontDefault(),
-				//				fmt.ctprintf("%d", b),
-				//				{f32(x) + 0.1, f32(y) + 0.7},
-				//				font_size,
-				//				0,
-				//				rl.BLUE,
-				//			)
-				//		}
-				//	}
-				//}
-			}
-
 			rl.EndMode2D()
-		} else {
-			rl.DrawText("Błąd wczytywania", 10, 10, 20, rl.RED)
 		}
-
 		// UI Info
 		rl.DrawText(fmt.ctprintf("Zoom: %.2fx", camera.zoom), 10, 570, 20, rl.LIGHTGRAY)
 		rl.DrawText("PPM Drag: Pan | Scroll: Zoom", 10, 10, 20, rl.RAYWHITE)
-
+		clay_raylib_render(&renderCommands)
 		rl.EndDrawing()
 	}
 
@@ -226,4 +212,5 @@ main :: proc() {
 		rl.UnloadTexture(texture)
 		delete(my_image.maxVal.([dynamic]u8))
 	}
+
 }

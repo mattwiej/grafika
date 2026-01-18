@@ -10,6 +10,11 @@ State_models :: struct {
 	panOffset:          rl.Vector2,
 	compressionQuality: int,
 	errorState:         ImageError_models,
+	buffer:             [32]u8,
+	bufferLen:          int,
+	activeInputId:      u32,
+	showModes:          bool,
+	loadNewTexture:     bool,
 }
 
 ImageBuffer_models :: struct {
