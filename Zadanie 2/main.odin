@@ -212,8 +212,6 @@ main :: proc() {
 	debugModeEnabled: bool = false
 	state: State_models
 	state.compressionQuality = 100
-	state.contrast = 1
-	state.brightness = 0.0
 
 	defer rl.CloseWindow()
 
@@ -242,9 +240,6 @@ main :: proc() {
 			camera.target = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2}
 			camera.zoom = 50
 			loaded = true
-		}
-		if state.dirtyFlag {
-			apply_color_correction(&state)
 		}
 
 		windowWidth = rl.GetScreenWidth()
