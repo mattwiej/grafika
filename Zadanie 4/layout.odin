@@ -350,9 +350,7 @@ modesOverlay :: proc(state: ^State_models) {
 					Dzielenie_Punktowe(&state.currentImage, i32(state.pointOperationValue), state)
 				}
 			}
-			// Jasność to de facto dodawanie/odejmowanie, ale dla UI można dać osobny przycisk "Brightness"
 			if actionButton("Brightness") {
-				// Traktujemy input jako zmianę jasności
 				Dodawanie_punktowe(&state.currentImage, i32(state.pointOperationValue), state)
 			}
 
@@ -362,16 +360,15 @@ modesOverlay :: proc(state: ^State_models) {
 			) {
 				if actionButton("Avg Gray") {
 					SzaroscSrednia_Punktowe(&state.currentImage, state)
-					// Uwaga: Tutaj musisz obsłużyć wyświetlanie szarości, jeśli funkcja zapisuje do innej tablicy
-					// Albo zmodyfikuj funkcję, żeby nadpisywała RGB.
+					state.showGrayscale = true
 				}
 				if actionButton("Wgt Gray") {
 					SzaroscSredniaWazona_Punktowe(&state.currentImage, state)
+					state.showGrayscale = true
 				}
 			}
 		}
 
-		// --- SEKCJA METOD POLEPSZANIA (B - FILTRY) ---
 		if clay.UI(clay.ID("Filter_Section"))(
 		{
 			layout = {

@@ -235,7 +235,37 @@ main :: proc() {
 
 
 		if state.loadNewTexture {
-			texture = create_texture_from_model(state.currentImage)
+			img_ptr := state.currentImage
+			if state.showGrayscale {
+				// SCIEŻKA 1: Wyświetlamy bufor szarości
+				fmt.println("Renderer: Loading Grayscale Mode")
+
+				pixel_data: rawptr
+				format: rl.PixelFormat
+
+				// Sprawdzamy czy mamy dane u8 czy u16
+				switch _ in img_ptr.maxVal {
+				case [dynamic]u8:
+					pixel_data = raw_data(state.grayScale8)
+					format = .UNCOMPRESSED_GRAYSCALE // 1 bajt na piksel
+				case [dynamic]u16:
+					pixel_data = raw_data(state.grayScale16)
+					format = .UNCOMPRESSED_GRAYSCALE
+				}
+
+				image := rl.Image {
+					data    = pixel_data,
+					width   = img_ptr.width,
+					height  = img_ptr.height,
+					mipmaps = 1,
+					format  = format,
+				}
+
+				texture = rl.LoadTextureFromImage(image)
+
+			} else {
+				texture = create_texture_from_model(state.currentImage)
+			}
 			state.loadNewTexture = false
 			camera.target = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2}
 			camera.zoom = 50

@@ -141,13 +141,8 @@ draw_pixel_grid :: proc(img: ImageBuffer_models, camera: rl.Camera2D) {
 
 		text := fmt.ctprintf("R:%d G:%d B:%d", r, g, b)
 
-		// Rozmiar czcionki niezależny od zooma (zawsze czytelny na ekranie)
-		// Musimy na chwilę wyjść z "Matrixa" kamery lub przeskalować tekst
-		// Opcja A: Tekst skalowany w świecie (będzie malutki przy oddaleniu, ale przyczepiony do piksela)
 		font_size := f32(1) // Wielkość dopasowana do 1 piksela
 
-		// Tło pod tekst (żeby był czytelny) - czarny prostokąt
-		// Pozycja: trochę nad pikselem
 		text_x := f32(mx)
 		text_y := f32(my) - 0.4
 		gap: f32 = font_size

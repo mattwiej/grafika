@@ -143,11 +143,9 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 		return val
 	}
 
-	// --- GŁÓWNA LOGIKA ---
 
 	start_parse := time.now()
 
-	// 1. Nagłówek Magic Number (P3/P6)
 	skip_junk(data, &cursor)
 	if cursor + 1 >= len(data) || data[cursor] != 'P' {
 		return {}, false
@@ -161,7 +159,6 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 	}
 	cursor += 2
 
-	// 2. Wymiary
 	skip_junk(data, &cursor)
 	width := i32(parse_int(data, &cursor))
 
@@ -176,24 +173,19 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 	fileMaxVal := parse_int(data, &cursor)
 	fmt.printfln("\n\n\n\n\nfileMaxVal = %v", fileMaxVal)
 
-	// Przygotowanie struktury wyjściowej
 	rawImg := ImageBuffer_models {
 		width  = width,
 		height = height,
 	}
 	expectedSize := int(width * height * 3)
 
-	// 3. Wczytywanie Danych (Pikseli)
-	if magic_type == '3' { 	// P3 (Tekstowe)
+	if magic_type == '3' {
 
 		if fileMaxVal > 255 {
-			// --- TRYB 16 BIT ---
 			rawImg.maxValFlag = 16
 
-			// Alokujemy raz, dokładnie tyle ile trzeba
 			pixels := make([dynamic]u16, expectedSize)
 
-			// Pobieramy wskaźnik do surowych danych (szybki zapis bez append)
 			ptr := raw_data(pixels)
 
 			for i := 0; i < expectedSize; i += 1 {
@@ -203,7 +195,6 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 			rawImg.maxVal = pixels
 
 		} else {
-			// --- TRYB 8 BIT (Standard) ---
 			rawImg.maxValFlag = 8
 
 			pixels := make([dynamic]u8, expectedSize)
@@ -216,7 +207,7 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 			rawImg.maxVal = pixels
 		}
 
-	} else if magic_type == '6' { 	// P6 (Binarne)
+	} else if magic_type == '6' {
 		if cursor < len(data) {
 			cursor += 1
 		}
@@ -238,7 +229,6 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 			pixels := make([dynamic]u16, expectedSize)
 			ptr := raw_data(pixels)
 
-			//konwersja z big endian na little endian
 			for i := 0; i < expectedSize; i += 1 {
 				// cursor + i*2     -> Starszy bajt
 				// cursor + i*2 + 1 -> Młodszy bajt
@@ -272,17 +262,4 @@ LoadFile_parser_fast :: proc(path: string, state: ^State_models) -> (ImageBuffer
 	fmt.printfln("Parsowanie (zero-copy): %v", duration_parse)
 
 	return rawImg, true
-}
-
-PPMHeaderParser_parser :: proc() {
-
-
-}
-
-PPM3Parser_parser :: proc() {
-
-}
-
-PPM6Parser_parser :: proc() {
-
 }

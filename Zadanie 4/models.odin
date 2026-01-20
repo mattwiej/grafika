@@ -18,8 +18,9 @@ State_models :: struct {
 	loadNewTexture:      bool,
 	grayScale8:          [dynamic]u8,
 	grayScale16:         [dynamic]u16,
-	pointOperationValue: int, // Wartość do dodawania/mnożenia itp.
+	pointOperationValue: int,
 	filterSigma:         f32,
+	showGrayscale:       bool,
 }
 
 ImageBuffer_models :: struct {
