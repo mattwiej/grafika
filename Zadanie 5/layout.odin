@@ -33,7 +33,6 @@ HandleTextInput :: proc(state: ^State_models) {
 	}
 }
 
-
 spacer :: proc() {
 	if clay.UI()(
 	{layout = {sizing = {width = clay.SizingGrow({}), height = clay.SizingGrow({})}}},
@@ -185,35 +184,6 @@ modeButon :: proc(id, text: string, isActive: bool) -> bool {
 
 //////////////
 
-
-inputField :: proc(label: string, value: string) {
-	if clay.UI(clay.ID(label))(
-	{
-		layout = {
-			sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
-			layoutDirection = .TopToBottom,
-			childGap = 5,
-		},
-	},
-	) {
-		clay.TextDynamic(label, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
-
-		if clay.UI(clay.ID(fmt.tprintf("%s_Input", label)))(
-		{
-			layout = {
-				sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(30)},
-				padding = clay.Padding{left = 5, right = 5, top = 5, bottom = 5}, // adjust as needed
-			},
-			backgroundColor = {255, 255, 255, 255}, // White background for input
-			cornerRadius = clay.CornerRadiusAll(5),
-			border = {width = clay.BorderAll(1), color = COLOR_BORDER},
-		},
-		) {
-			clay.TextDynamic(value, clay.TextConfig({fontSize = 16, textColor = {0, 0, 0, 255}}))
-		}
-	}
-}
-
 actionButton :: proc(text: string) -> bool {
 	clicked := false
 	if clay.UI(clay.ID(text))(
@@ -235,13 +205,6 @@ actionButton :: proc(text: string) -> bool {
 	}
 	return clicked
 }
-
-
-runFilter :: proc(state: ^State_models, type: FilterType, sigma: f32) {
-	ApplyFilter(&state.currentImage, type, sigma)
-	state.loadNewTexture = true
-}
-
 
 modesOverlay :: proc(state: ^State_models) {
 	if clay.UI(clay.ID("ToolsWindow"))(
@@ -277,7 +240,6 @@ modesOverlay :: proc(state: ^State_models) {
 			)
 			spacer()
 		}
-		PropertyInput("quality", &state.compressionQuality, 420, state)
 		if clay.UI(clay.ID("Saving_Loading"))(
 		{
 			layout = {
@@ -308,103 +270,8 @@ modesOverlay :: proc(state: ^State_models) {
 
 
 			}}
-		if clay.UI(clay.ID("Point_Ops_Section"))(
-		{
-			layout = {
-				sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
-				layoutDirection = .TopToBottom,
-				padding = clay.PaddingAll(10),
-				childGap = 5,
-			},
-			backgroundColor = COLOR_WINDOW_BG,
-			cornerRadius = clay.CornerRadiusAll(8),
-		},
-		) {
-			clay.Text("Point Operations", clay.TextConfig({fontSize = 18, textColor = COLOR_TEXT}))
 
-			// Input dla wartości operacji
-			PropertyInput("Value", &state.pointOperationValue, 500, state)
 
-			// Siatka przycisków 2x2
-			if clay.UI(clay.ID("Math_Grid_1"))(
-			{layout = {layoutDirection = .LeftToRight, childGap = 5}},
-			) {
-				if actionButton("Add (+)") {
-					Dodawanie_punktowe(&state.currentImage, i32(state.pointOperationValue), state)
-				}
-				if actionButton("Sub (-)") {
-					Odejmowanie_Punktowe(
-						&state.currentImage,
-						i32(state.pointOperationValue),
-						state,
-					)
-				}
-			}
-			if clay.UI(clay.ID("Math_Grid_2"))(
-			{layout = {layoutDirection = .LeftToRight, childGap = 5}},
-			) {
-				if actionButton("Mul (*)") {
-					Mnozenie_Punktowe(&state.currentImage, i32(state.pointOperationValue), state)
-				}
-				if actionButton("Div (/)") {
-					Dzielenie_Punktowe(&state.currentImage, i32(state.pointOperationValue), state)
-				}
-			}
-			if actionButton("Brightness") {
-				Dodawanie_punktowe(&state.currentImage, i32(state.pointOperationValue), state)
-			}
-
-			clay.Text("Grayscale", clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
-			if clay.UI(clay.ID("Gray_Grid"))(
-			{layout = {layoutDirection = .LeftToRight, childGap = 5}},
-			) {
-				if actionButton("Avg Gray") {
-					SzaroscSrednia_Punktowe(&state.currentImage, state)
-					state.loadNewTexture = true
-					state.showGrayscale = true
-				}
-				if actionButton("Wgt Gray") {
-					SzaroscSredniaWazona_Punktowe(&state.currentImage, state)
-					state.loadNewTexture = true
-					state.showGrayscale = true
-				}
-			}
-		}
-
-		if clay.UI(clay.ID("Filter_Section"))(
-		{
-			layout = {
-				sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
-				layoutDirection = .TopToBottom,
-				padding = clay.PaddingAll(10),
-				childGap = 5,
-			},
-			backgroundColor = COLOR_WINDOW_BG,
-			cornerRadius = clay.CornerRadiusAll(8),
-		},
-		) {
-			clay.Text("Filters", clay.TextConfig({fontSize = 18, textColor = COLOR_TEXT}))
-
-			if actionButton("Average (Blur)") {
-				runFilter(state, .Average, 0)
-			}
-			if actionButton("Median") {
-				runFilter(state, .Median, 0)
-			}
-			if actionButton("Sobel (Edge)") {
-				runFilter(state, .Sobel, 0)
-			}
-			if actionButton("Sharpen") {
-				runFilter(state, .Sharpen, 0)
-			}
-
-			clay.Text("Gaussian Blur", clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
-			PropertyInput("Sigma", &state.filterSigma, 600, state)
-
-			if actionButton("Apply Gauss") {
-				runFilter(state, .Gaussian, state.filterSigma)
-			}
-		}
 		spacer()
 
 	}
@@ -428,10 +295,6 @@ createLayout :: proc(state: ^State_models) -> clay.ClayArray(clay.RenderCommand)
 			modesOverlay(state)
 		}
 		spacer()
-
-		//	if state.selectedIdx != -1 {
-		//shapeInfoOverlay(state)
-		//	}
 	}
 
 	return clay.EndLayout()

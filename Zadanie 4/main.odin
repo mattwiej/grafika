@@ -247,7 +247,7 @@ main :: proc() {
 				switch _ in img_ptr.maxVal {
 				case [dynamic]u8:
 					pixel_data = raw_data(state.grayScale8)
-					format = .UNCOMPRESSED_GRAYSCALE // 1 bajt na piksel
+					format = .UNCOMPRESSED_GRAYSCALE
 				case [dynamic]u16:
 					pixel_data = raw_data(state.grayScale16)
 					format = .UNCOMPRESSED_GRAYSCALE
@@ -260,7 +260,7 @@ main :: proc() {
 					mipmaps = 1,
 					format  = format,
 				}
-
+				state.showGrayscale = false
 				texture = rl.LoadTextureFromImage(image)
 
 			} else {
