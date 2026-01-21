@@ -28,14 +28,10 @@ create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
 		temp_pixels_8 := make([dynamic]u8, len(pixels_16))
 		defer delete(temp_pixels_8)
 
-		// Przeliczamy 0..65535 na 0..255
-		// Wzór: (wartość * 255) / maxVal
-
 		div: f32 = 65535.0
 
 		for i := 0; i < len(pixels_16); i += 1 {
 			val16 := f32(pixels_16[i])
-			// Skalowanie liniowe do 8 bitów
 			temp_pixels_8[i] = u8((val16 * 255.0) / div)
 		}
 
@@ -44,7 +40,7 @@ create_texture_from_model :: proc(img: ImageBuffer_models) -> rl.Texture2D {
 			width   = img.width,
 			height  = img.height,
 			mipmaps = 1,
-			format  = .UNCOMPRESSED_R8G8B8, // Teraz to bezpieczny format!
+			format  = .UNCOMPRESSED_R8G8B8,
 		}
 
 		return rl.LoadTextureFromImage(image)
@@ -141,12 +137,11 @@ draw_pixel_grid :: proc(img: ImageBuffer_models, camera: rl.Camera2D) {
 
 		text := fmt.ctprintf("R:%d G:%d B:%d", r, g, b)
 
-		font_size := f32(1) // Wielkość dopasowana do 1 piksela
+		font_size := f32(1)
 
 		text_x := f32(mx)
 		text_y := f32(my) - 0.4
 		gap: f32 = font_size
-		// Rysujemy wartości kolorami
 		rl.DrawTextEx(
 			rl.GetFontDefault(),
 			fmt.ctprintf("%d", r),
@@ -217,8 +212,8 @@ main :: proc() {
 	texture: rl.Texture2D
 	my_image := state.currentImage
 	camera := rl.Camera2D {
-		offset   = rl.Vector2{400, 300}, // Środek ekranu (punkt skupienia)
-		target   = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2}, // Środek obrazka
+		offset   = rl.Vector2{400, 300},
+		target   = rl.Vector2{f32(my_image.width) / 2, f32(my_image.height) / 2},
 		rotation = 0,
 		zoom     = 1.0,
 	}

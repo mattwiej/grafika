@@ -33,6 +33,7 @@ HandleTextInput :: proc(state: ^State_models) {
 	}
 }
 
+
 spacer :: proc() {
 	if clay.UI()(
 	{layout = {sizing = {width = clay.SizingGrow({}), height = clay.SizingGrow({})}}},
@@ -184,6 +185,35 @@ modeButon :: proc(id, text: string, isActive: bool) -> bool {
 
 //////////////
 
+
+inputField :: proc(label: string, value: string) {
+	if clay.UI(clay.ID(label))(
+	{
+		layout = {
+			sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
+			layoutDirection = .TopToBottom,
+			childGap = 5,
+		},
+	},
+	) {
+		clay.TextDynamic(label, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
+
+		if clay.UI(clay.ID(fmt.tprintf("%s_Input", label)))(
+		{
+			layout = {
+				sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(30)},
+				padding = clay.Padding{left = 5, right = 5, top = 5, bottom = 5}, // adjust as needed
+			},
+			backgroundColor = {255, 255, 255, 255}, // White background for input
+			cornerRadius = clay.CornerRadiusAll(5),
+			border = {width = clay.BorderAll(1), color = COLOR_BORDER},
+		},
+		) {
+			clay.TextDynamic(value, clay.TextConfig({fontSize = 16, textColor = {0, 0, 0, 255}}))
+		}
+	}
+}
+
 actionButton :: proc(text: string) -> bool {
 	clicked := false
 	if clay.UI(clay.ID(text))(
@@ -210,72 +240,296 @@ modesOverlay :: proc(state: ^State_models) {
 	if clay.UI(clay.ID("ToolsWindow"))(
 	{
 		layout = {
-			sizing = {width = clay.SizingFixed(250), height = clay.SizingGrow({})},
+			sizing = {width = clay.SizingFixed(280), height = clay.SizingGrow({})}, // Nieco szerszy panel
 			layoutDirection = .TopToBottom,
-			padding = clay.PaddingAll(10),
-			childGap = 10,
+			padding = clay.PaddingAll(15),
+			childGap = 15,
 		},
 		backgroundColor = COLOR_DEBUG_PINK,
-		cornerRadius = clay.CornerRadiusAll(10),
-		border = {width = clay.BorderAll(1), color = COLOR_BORDER},
+		//border = {right = {width = 2, color = COLOR_BORDER}},
 	},
 	) {
-		if clay.UI(clay.ID("ToolsWindowHeadder"))(
+		clay.Text("Image Ops", clay.TextConfig({fontSize = 32, textColor = COLOR_TEXT}))
+
+		sectionHeader("File Operations")
+		if clay.UI(clay.ID("FileOps"))(
 		{
 			layout = {
-				sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
-				layoutDirection = clay.LayoutDirection.LeftToRight,
-				padding = clay.PaddingAll(10),
-				childGap = 10,
-			},
-			backgroundColor = COLOR_WINDOW_BG,
-		},
-		) {
-			spacer()
-			clay.Text(
-				"Tools",
-				clay.TextConfig(
-					{fontSize = 36, fontId = FONT_ID_TITLE_36, textColor = COLOR_TEXT},
-				),
-			)
-			spacer()
-		}
-		if clay.UI(clay.ID("Saving_Loading"))(
-		{
-			layout = {
-				sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
 				layoutDirection = .LeftToRight,
-				padding = clay.PaddingAll(10),
 				childGap = 10,
+				sizing = {width = clay.SizingGrow({})},
 			},
-			backgroundColor = COLOR_WINDOW_BG,
-			cornerRadius = clay.CornerRadiusAll(8),
 		},
 		) {
 			if actionButton("Save") {
 				if path, ok := save_file_dialog(); ok {
 					SaveToJpeg(state.currentImage, path, state.compressionQuality)
 				}
-				fmt.println("zapisane")}
-
+			}
 			if actionButton("Load") {
 				if path, ok := open_file_dialog(); ok {
 					data, load := LoadFile_parser_fast(path, state)
 					if load {
 						state.loadNewTexture = true
 						state.currentImage = data
+						state.currentImage.hist = nil
+						state.hasPreview = false
+						RecalculateChannelCount(&state.currentImage)
 					}
 				}
-				fmt.println("wczytane")
+			}
+		}
+		PropertyInput("JPEG Quality", &state.compressionQuality, 999, state)
 
+		// --- SEKCJA 3: BINARYZACJA ---
+		sectionHeader("Binarization")
 
-			}}
+		// Lista metod (Radio Buttons)
+		if radioButton("None (Original)", state.selectedMethod == .None, "None") {
+			state.selectedMethod = .None
+		}
 
+		if radioButton("Manual Threshold", state.selectedMethod == .Manual, "Manual") {
+			state.selectedMethod = .Manual
+		}
+		if state.selectedMethod == .Manual {
+			oldTh := state.thresholdManual
+			PropertyInput("Threshold (0-255)", &state.thresholdManual, 1001, state)
+			if oldTh != state.thresholdManual {
+				fmt.printfln("czy wchodzi tutej")
+				ManualBinarization(&state.currentImage, state)
+			}
+		}
 
+		if radioButton("Percent Black", state.selectedMethod == .PercentBlack, "Perc") {
+			state.selectedMethod = .PercentBlack
+		}
+		if state.selectedMethod == .PercentBlack {
+			PropertyInput("Percent (0.0-1.0)", &state.thresholdPercent, 1002, state)
+		}
+
+		if radioButton("Iterative Mean", state.selectedMethod == .MeanIterative, "Mean") {
+			state.selectedMethod = .MeanIterative
+		}
+
+		if radioButton("Entropy Selection", state.selectedMethod == .Entropy, "Entropy") {
+			state.selectedMethod = .Entropy
+		}
+
+		if radioButton("Minimum Error", state.selectedMethod == .MinError, "MinErr") {
+			state.selectedMethod = .MinError
+		}
+
+		if radioButton("Fuzzy Min Error", state.selectedMethod == .FuzzyMinError, "Fuzzy") {
+			state.selectedMethod = .FuzzyMinError
+		}
+
+		if state.selectedMethod != .None {
+			if actionButton("APPLY BINARIZATION") {
+				fmt.printfln("Applying Method: %v", state.selectedMethod)
+				ApplyAutoBinarization(state)
+			}
+		}
+		clay.Text("Grayscale", clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
+		if clay.UI(clay.ID("Gray_Grid"))(
+		{layout = {layoutDirection = .LeftToRight, childGap = 5}},
+		) {
+			if actionButton("Avg Gray") {
+				ConvertToGrayscale(&state.currentImage, false)
+				state.loadNewTexture = true
+				CreateHistogram(state, &state.currentImage)
+			}
+			if actionButton("Wgt Gray") {
+				ConvertToGrayscale(&state.currentImage, true)
+				state.loadNewTexture = true
+				CreateHistogram(state, &state.currentImage)
+			}
+		}
 		spacer()
-
 	}
 }
+
+sectionHeader :: proc(text: string) {
+	if clay.UI(clay.ID(fmt.tprintf("Header_%s", text)))(
+	{
+		layout = {
+			sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
+			padding = {top = 10, bottom = 5},
+		},
+	},
+	) {
+		clay.TextDynamic(text, clay.TextConfig({fontSize = 18, textColor = {150, 150, 150, 255}}))
+		// Linia oddzielająca
+		if clay.UI(clay.ID(fmt.tprintf("Line_%s", text)))(
+		{
+			layout = {sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(1)}},
+			backgroundColor = {80, 80, 80, 255},
+		},
+		) {}
+	}
+}
+/////////EKSPERYMENTY
+radioButton :: proc(text: string, isActive: bool, id_suffix: string) -> bool {
+	clicked := false
+
+	// Kolory
+	bgCol := isActive ? clay.Color{30, 120, 90, 255} : clay.Color{60, 60, 60, 255}
+	borderCol := isActive ? clay.Color{100, 255, 100, 255} : clay.Color{80, 80, 80, 255}
+
+	if clay.UI(clay.ID(fmt.tprintf("Radio_%s", id_suffix)))(
+	{
+		layout = {
+			sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(35)},
+			padding = clay.PaddingAll(8),
+			childAlignment = {y = .Center},
+		},
+		backgroundColor = clay.Hovered() ? clay.Color{80, 80, 80, 255} : bgCol,
+		cornerRadius = clay.CornerRadiusAll(5),
+		border = {width = clay.BorderAll(1), color = borderCol},
+	},
+	) {
+		clay.TextDynamic(text, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
+
+		// Obsługa kliknięcia
+		if clay.PointerOver(
+			   clay.GetElementId(clay.MakeString(fmt.tprintf("Radio_%s", id_suffix))),
+		   ) &&
+		   rl.IsMouseButtonPressed(.LEFT) {
+			clicked = true
+		}
+	}
+	return clicked
+}
+histogramOverlay :: proc(state: ^State_models) {
+	if clay.UI(clay.ID("RightPanel"))(
+	{
+		layout = {
+			sizing = {width = clay.SizingFixed(320), height = clay.SizingGrow({})}, // Trochę szerzej
+			layoutDirection = .TopToBottom,
+			padding = clay.PaddingAll(10),
+			childGap = 10,
+		},
+		backgroundColor = COLOR_WINDOW_BG,
+		//border = {left = {width = 2, color = COLOR_BORDER}}, // Linia oddzielająca od obrazka
+	},
+	) {
+		clay.Text("Histograms", clay.TextConfig({fontSize = 24, textColor = COLOR_TEXT}))
+
+		img := &state.currentImage
+
+		switch img.channelCount {
+		case 1:
+			// --- KANAŁ GRAY ---
+			renderChannelControls("Gray", "Hist_Gray", state, 0) // 0 to umowny ID kanału
+
+		case 3:
+			// --- KANAŁ RED ---
+			renderChannelControls("Red Channel", "Hist_Red", state, 0)
+
+			// --- KANAŁ GREEN ---
+			renderChannelControls("Green Channel", "Hist_Green", state, 1)
+
+			// --- KANAŁ BLUE ---
+			renderChannelControls("Blue Channel", "Hist_Blue", state, 2)
+
+		case:
+			clay.Text(
+				"Unsupported channel count",
+				clay.TextConfig({fontSize = 16, textColor = {255, 0, 0, 255}}),
+			)
+		}
+	}
+}
+
+renderChannelControls :: proc(
+	label: string,
+	canvasId: string,
+	state: ^State_models,
+	channelIdx: int,
+) {
+	clay.TextDynamic(label, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
+
+	if clay.UI(clay.ID(canvasId))(
+	{
+		layout = {sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(120)}},
+		backgroundColor = {20, 20, 20, 255}, // Ciemne tło pod wykresem
+		cornerRadius = clay.CornerRadiusAll(5),
+		border = {width = clay.BorderAll(1), color = COLOR_BORDER},
+	},
+	) {}
+
+	if clay.UI(clay.ID(fmt.tprintf("Btns_%s", canvasId)))(
+	{
+		layout = {
+			sizing = {width = clay.SizingGrow({}), height = clay.SizingFit({})},
+			layoutDirection = .LeftToRight,
+			childGap = 5,
+		},
+	},
+	) {
+		btnStretchId := fmt.tprintf("Stretch_%s", canvasId)
+		btnEqId := fmt.tprintf("Eq_%s", canvasId)
+
+		if actionButtonWithId(btnStretchId, "Stretch") {
+			fmt.printf("Stretching channel %d\n", channelIdx)
+			// Tutaj wywołaj swoją logikę:
+			StretchHistogramChannel(&state.currentImage, channelIdx, state)
+		}
+
+		if actionButtonWithId(btnEqId, "Equalize") {
+			fmt.printf("Equalizing channel %d\n", channelIdx)
+			EqualizeHistogramChannel(&state.currentImage, channelIdx, state)
+		}
+	}
+
+	// Mały odstęp po sekcji
+	spacerFixed(10)
+}
+
+actionButtonWithId :: proc(id: string, text: string) -> bool {
+	clicked := false
+	if clay.UI(clay.ID(id))(
+	{
+		layout = {
+			sizing = {width = clay.SizingGrow({}), height = clay.SizingFixed(30)},
+			padding = clay.PaddingAll(5),
+			childAlignment = {x = .Center, y = .Center},
+		},
+		backgroundColor = {60, 60, 60, 255},
+		cornerRadius = clay.CornerRadiusAll(4),
+	},
+	) {
+		clay.TextDynamic(text, clay.TextConfig({fontSize = 16, textColor = COLOR_TEXT}))
+		if clay.PointerOver(clay.GetElementId(clay.MakeString(id))) &&
+		   rl.IsMouseButtonPressed(.LEFT) {
+			clicked = true
+		}
+	}
+	return clicked
+}
+
+spacerFixed :: proc(h: f32) {
+	if clay.UI(clay.ID(fmt.tprintf("spacer_%f", h)))(
+	{layout = {sizing = {height = clay.SizingFixed(h)}}},
+	) {}
+}
+
+GetClayRect :: proc(idStr: string) -> (rl.Rectangle, bool) {
+	id := clay.GetElementId(clay.MakeString(idStr))
+	data := clay.GetElementData(id)
+
+	if data.found {
+		return rl.Rectangle {
+				x = data.boundingBox.x,
+				y = data.boundingBox.y,
+				width = data.boundingBox.width,
+				height = data.boundingBox.height,
+			},
+			true
+	}
+	return {}, false
+}
+
 createLayout :: proc(state: ^State_models) -> clay.ClayArray(clay.RenderCommand) {
 
 
@@ -295,6 +549,10 @@ createLayout :: proc(state: ^State_models) -> clay.ClayArray(clay.RenderCommand)
 			modesOverlay(state)
 		}
 		spacer()
+
+		if state.showModes {
+			histogramOverlay(state)
+		}
 	}
 
 	return clay.EndLayout()
